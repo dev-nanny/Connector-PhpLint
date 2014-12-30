@@ -1,3 +1,5 @@
 # If they ask, I was never here!
 vendor/
+build/logs
 phpunit.xml
+
