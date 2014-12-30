@@ -20,7 +20,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "DevNanny\\Connector\\": "tests/"
+            "DevNanny\\Connector\\": "tests/",
+            "DevNanny\\Connector\\": "vendor/dev-nanny/connector-base/tests/"
         }
     },
     "extra": {
