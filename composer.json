@@ -1,0 +1,31 @@
+{
+    "name": "dev-nanny/connector-php-lint",
+    "description": "DevNanny Connector for PHP Linting",
+    "type": "dev-nanny-connector",
+    "license": "GPL-3.0+",
+    "require": {
+        "dev-nanny/connector-base": "~0.1",
+        "symfony/process": "~2.6"
+    },
+    "require-dev": {
+        "composer/composer" : "@dev",
+        "phpunit/phpunit": "~4.4",
+        "satooshi/php-coveralls": "dev-master",
+        "whatthejeff/nyancat-phpunit-resultprinter": "~1.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "DevNanny\\Connector\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "DevNanny\\Connector\\": "tests/"
+        }
+    },
+    "extra": {
+        "connector-classes": [
+            "DevNanny\\Connector\\PhpLintConnector"
+        ]
+    }
+}
