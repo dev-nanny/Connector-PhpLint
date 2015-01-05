@@ -122,7 +122,7 @@ class PhpLintConnectorTest extends BaseTestCase
         $errorCode = $connector->getErrorCode();
 
         $this->assertSame(PHP_EOL . PHP_EOL, $output);
-        $this->assertSame(0, $errorCode);
+        $this->assertSame(1, $errorCode, 'Exit code is incorrect');
     }
     ////////////////////////////// MOCKS AND STUBS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
     /**

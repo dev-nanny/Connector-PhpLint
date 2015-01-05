@@ -58,7 +58,7 @@ class PhpLintConnector /*extends BaseConnector*/ implements ConnectorInterface
     {
         $files = $this->buildFileList($filesystem, $changeList);
         $valid = $this->runPhpLint($files);
-        $this->errorCode = (int) $valid;
+        $this->errorCode = (int) ($valid === false);
     }
 
     private function runPhpLint($files)
