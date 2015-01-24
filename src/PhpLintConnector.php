@@ -29,7 +29,7 @@ class PhpLintConnector /*extends BaseConnector*/ implements ConnectorInterface
      */
     public function getOutput()
     {
-        return implode(PHP_EOL, $this->output) . PHP_EOL;
+        return trim(implode(PHP_EOL, $this->output)) . PHP_EOL;
     }
 
     /**
@@ -54,7 +54,7 @@ class PhpLintConnector /*extends BaseConnector*/ implements ConnectorInterface
     /**
      * {@inheritdoc}
      */
-    final public function run(FilesystemInterface  $filesystem, array $changeList = [])
+    final public function run(FilesystemInterface  $filesystem, $changeList = null)
     {
         $files = $this->buildFileList($filesystem, $changeList);
         $valid = $this->runPhpLint($files);
@@ -85,21 +85,21 @@ class PhpLintConnector /*extends BaseConnector*/ implements ConnectorInterface
      *
      * @return array
      */
-    private function buildFileList(FilesystemInterface $filesystem, array $changeList)
+    private function buildFileList(FilesystemInterface $filesystem, array $changeList = null)
     {
         $files = [];
 
-        foreach ($changeList as $file) {
-            if ($this->shouldBeValidated($file)) {
-                $files[] = $file;
-            }
-        }
-
-        if (empty($files)) {
+        if ($changeList === null) {
             $fileList = $filesystem->listContents('./', true);
             foreach ($fileList as $file) {
                 if ($this->shouldBeValidated($file['path'])) {
                     $files[] = $file['path'];
+                }
+            }
+        } else {
+            foreach ($changeList as $file => $changeType) {
+                if ($this->shouldBeValidated($file, $changeType)) {
+                    $files[] = $file;
                 }
             }
         }
@@ -119,7 +119,7 @@ class PhpLintConnector /*extends BaseConnector*/ implements ConnectorInterface
      */
     private function isPhpFile($fileName)
     {
-        $pattern = '#(\.php)|(\.inc)$#';
+        $pattern = '#(\.php)$#';
 
         return (preg_match($pattern, $fileName) === 1);
     }
@@ -149,9 +149,10 @@ class PhpLintConnector /*extends BaseConnector*/ implements ConnectorInterface
      *
      * @return bool
      */
-    private function shouldBeValidated($file)
+    private function shouldBeValidated($file, $changeType = null)
     {
-        return $this->isPhpFile($file) === true
+        return in_array($changeType, [null, 'A', 'C', 'M', 'R', 'T', 'U', 'X'])
+            && $this->isPhpFile($file) === true
             && $this->shouldBeIgnored($file) === false
         ;
     }

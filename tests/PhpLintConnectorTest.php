@@ -41,7 +41,7 @@ class PhpLintConnectorTest extends BaseTestCase
      * @covers ::run
      * @covers ::setProcessBuilder
      */
-    final public function testPhpLintConnectorShouldLintEntireFileSystemWhenAskedToRunWithEmptyChangeList()
+    final public function testPhpLintConnectorShouldLintEntireFileSystemWhenAskedToRunWithoutChangeList()
     {
         $connector = $this->connector;
 
@@ -62,29 +62,89 @@ class PhpLintConnectorTest extends BaseTestCase
      * @covers ::run
      * @covers ::setProcessBuilder
      */
+    final public function testPhpLintConnectorShouldLintEntireFileSystemWhenAskedToRunWithEmptyChangeList()
+    {
+        $connector = $this->connector;
+
+        $mockFileSystem = $this->getMockFileSystem();
+        $mockProcessBuilder = $this->getMockProcessBuilder();
+
+        $mockFileSystem->expects($this->exactly(1))
+            ->method('listContents')
+            ->willReturn([])
+        ;
+
+        $connector->setProcessBuilder($mockProcessBuilder);
+
+        $connector->run($mockFileSystem, null);
+    }
+
+    /**
+     * @covers ::run
+     * @covers ::setProcessBuilder
+     */
     final public function testPhpLintConnectorShouldOnlyLintChangeListWhenAskedToRunWithPopulatedChangeList()
     {
         $connector = $this->connector;
 
-        $mockChangeList = ['foo.php', 'bar.html', 'baz.inc', 'vendor/foz.php'];
-        $expected  = ['foo.php', 'baz.inc'];
+        $mockChangeList = [];
+
+        $mockProcessBuilder = $this->getMockProcessBuilder();
+        $mockFileSystem = $this->getMockFileSystem();
+        $mockProcess = $this->getMockProcess();
+
+        $mockFileSystem->expects($this->exactly(0))
+            ->method('listContents')
+        ;
+
+        $connector->setProcessBuilder($mockProcessBuilder);
+
+        $connector->run($mockFileSystem, $mockChangeList);
+    }
+
+    /**
+     * @covers ::run
+     * @covers ::setProcessBuilder
+     */
+    final public function testPhpLintConnectorShouldOnlyLintChangedFilesWhenAskedToRunWithPopulatedChangeList()
+    {
+        $connector = $this->connector;
+
+        $mockChangeList = [
+            'foo.php' => 'A',
+            'bar.html' => 'A',
+            'baz.inc' => 'A',
+            'vendor/foz.php' => 'A',
+            'src/a.php' => 'A', // ADDED
+            'src/c.php' => 'C', // COPIED
+            'src/d.php' => 'D', // DELETED
+            'src/m.php' => 'M', // MODIFIED
+            'src/r.php' => 'R', // RENAMED
+            'src/t.php' => 'T', // TYPE_CHANGED
+            'src/u.php' => 'U', // UNMERGED
+            'src/x.php' => 'X', // UNKNOWN
+        ];
+
+        $expected  = ['foo.php', 'src/a.php', 'src/c.php', 'src/m.php', 'src/r.php', 'src/t.php', 'src/u.php', 'src/x.php'];
+
         $count = count($expected);
 
         $mockProcessBuilder = $this->getMockProcessBuilder();
         $mockFileSystem = $this->getMockFileSystem();
-
-        $mockProcess = $this->getMockBuilder(Process::class)
-            ->disableOriginalConstructor()
-            ->getMock()
-        ;
+        $mockProcess = $this->getMockProcess();
 
         $mockProcessBuilder->expects($this->exactly($count))
             ->method('setArguments')
             ->withConsecutive(
                 array(array('php', '-l', 'foo.php')),
-                array(array('php', '-l', 'baz.inc'))
-            )
-        ;
+                array(array('php', '-l', 'src/a.php')),
+                array(array('php', '-l', 'src/c.php')),
+                array(array('php', '-l', 'src/m.php')),
+                array(array('php', '-l', 'src/r.php')),
+                array(array('php', '-l', 'src/t.php')),
+                array(array('php', '-l', 'src/u.php')),
+                array(array('php', '-l', 'src/x.php'))
+        );
 
         $mockProcessBuilder->expects($this->exactly($count))
             ->method('getProcess')
@@ -95,10 +155,13 @@ class PhpLintConnectorTest extends BaseTestCase
             ->method('run')
         ;
 
+        $mockProcess->expects($this->exactly($count))
+            ->method('isSuccessful')
+            ->willReturn(true)
+        ;
 
         $mockFileSystem->expects($this->exactly(0))
             ->method('listContents')
-            ->willReturn([])
         ;
 
         $connector->setProcessBuilder($mockProcessBuilder);
@@ -109,21 +172,57 @@ class PhpLintConnectorTest extends BaseTestCase
     }
 
     /**
+     * @covers ::run
+     * @covers ::setProcessBuilder
+     * @covers ::getErrorCode
+     *
+     * @dataProvider provideExpectedErrorCodes
+     */
+    final public function testPhpLintConnectorShouldReturnExpectedErrorCodeWhenAskedToRunWithPopulatedChangeList($success, $errorCode)
+    {
+        $connector = $this->connector;
+
+        $mockChangeList = [
+            'foo.php' => 'A',
+        ];
+
+        $count = count($mockChangeList);
+
+        $mockProcessBuilder = $this->getMockProcessBuilder();
+        $mockFileSystem = $this->getMockFileSystem();
+        $mockProcess = $this->getMockProcess();
+
+        $mockProcessBuilder->expects($this->exactly($count))
+            ->method('getProcess')
+            ->willReturn($mockProcess)
+        ;
+
+        $mockProcess->expects($this->exactly($count))
+            ->method('isSuccessful')
+            ->willReturn($success)
+        ;
+
+        $connector->setProcessBuilder($mockProcessBuilder);
+
+        $connector->run($mockFileSystem, $mockChangeList);
+
+        $this->assertSame($errorCode, $connector->getErrorCode(), 'Exit code is incorrect');
+    }
+
+    /**
      * @param $connector
      *
      * @covers ::getOutput
-     * @covers ::getErrorCode
      *
-     * @depends testPhpLintConnectorShouldOnlyLintChangeListWhenAskedToRunWithPopulatedChangeList
+     * @depends testPhpLintConnectorShouldOnlyLintChangedFilesWhenAskedToRunWithPopulatedChangeList
      */
     final public function testConnectorOutput(PhpLintConnector $connector)
     {
         $output = $connector->getOutput();
-        $errorCode = $connector->getErrorCode();
 
-        $this->assertSame(PHP_EOL . PHP_EOL, $output);
-        $this->assertSame(1, $errorCode, 'Exit code is incorrect');
+        $this->assertSame(PHP_EOL, $output, 'Output is incorrect');
     }
+
     ////////////////////////////// MOCKS AND STUBS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\
     /**
      * @return FilesystemInterface|\PHPUnit_Framework_MockObject_MockObject
@@ -147,7 +246,27 @@ class PhpLintConnectorTest extends BaseTestCase
 
         return $mockProcessBuilder;
     }
-    /////////////////////////////// DATAPROVIDERS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-}
 
+    /**
+     * @return Process|\PHPUnit_Framework_MockObject_MockObject
+     */
+    private function getMockProcess()
+    {
+        $mockProcess = $this->getMockBuilder(Process::class)
+            ->disableOriginalConstructor()
+            ->getMock()
+        ;
+        
+        return $mockProcess;
+    }
+
+    /////////////////////////////// DATAPROVIDERS \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+    final public function provideExpectedErrorCodes()
+    {
+        return array(
+            array(true, 0),
+            array(false, 1),
+        );
+    }
+}
 /*EOF*/
