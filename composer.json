@@ -5,7 +5,7 @@
     "license": "GPL-3.0+",
     "require": {
         "dev-nanny/connector-base": "~0.1",
-        "symfony/process": "~2.6"
+        "symfony/process": "~2.7|~3.0"
     },
     "require-dev": {
         "composer/composer" : "@dev",
